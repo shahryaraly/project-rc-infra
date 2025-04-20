@@ -11,7 +11,14 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Set variables
+        id: vars
+        run: |
+          # Extract repo name as APP_NAME
+          echo "APP_NAME=$(basename '${{ github.event.workflow_run.head_repository.full_name }}')" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Infra Repo
+        uses: actions/checkout@v4
         with:
           repository: shahryaraly/project-rc-infra
           path: app
@@ -19,6 +26,13 @@ jobs:
       - name: Deploy
         run: |
           kubectl apply -f app/k8s/
-          kubectl set image deployment/YOUR_DEPLOYMENT_NAME YOUR_CONTAINER_NAME=ghcr.io/${{ github.repository_owner }}/YOUR_APP_NAME:${{ github.event.workflow_run.head_sha }}
+
+          DEPLOYMENT_NAME="${{ steps.vars.outputs.APP_NAME }}"
+          CONTAINER_NAME="${{ steps.vars.outputs.APP_NAME }}"
+          IMAGE="ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.APP_NAME }}:${{ github.event.workflow_run.head_sha }}"
+
+          echo "Updating $DEPLOYMENT_NAME container $CONTAINER_NAME with image $IMAGE"
+
+          kubectl set image deployment/$DEPLOYMENT_NAME $CONTAINER_NAME=$IMAGE
         env:
           KUBECONFIG: ${{ secrets.KUBECONFIG }}
