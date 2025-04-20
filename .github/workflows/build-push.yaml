@@ -1,0 +1,23 @@
+name: Build and Push
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'my-app/**'  # Watch for changes in app repo
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: my-app
+          ssh-key: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJghRb/Z4AjBNEb30Tf+syKbNeqGRH2aEXTjD0ZasKQ8 root@rc-master
+
+      - name: Login to GHCR
+        run: echo "aa3861ecafe83b1ff737c3d553ed0784ee25e653" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and Push
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/my-app:${{ github.sha }} ./my-app
+          docker push ghcr.io/${{ github.repository_owner }}/my-app:${{ github.sha }}
