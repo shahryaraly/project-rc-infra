@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
     paths:
       - '**'
+  workflow_dispatch:   # Add this line to allow manual/API trigger!
 
 jobs:
   build:
@@ -14,15 +15,12 @@ jobs:
       - name: Set variables
         id: vars
         run: |
-          # Get the app name from the repository name
           echo "APP_NAME=$(basename '${{ github.repository }}')" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout App Repo
+      - name: Checkout Source
         uses: actions/checkout@v4
-        with:
-          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build and Push Docker Image
@@ -31,5 +29,5 @@ jobs:
           IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$APP_NAME:${{ github.sha }}
 
           echo "Building $IMAGE_NAME"
-          docker build -t $IMAGE_NAME
+          docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
