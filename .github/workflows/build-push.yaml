@@ -6,6 +6,11 @@ on:
     paths:
       - '**'
   workflow_dispatch:   # Add this line to allow manual/API trigger!
+    inputs:
+      application_repo:
+        description: 'Repository to build (format: owner/repo)'
+        required: true
+        type: string
 
 jobs:
   build:
