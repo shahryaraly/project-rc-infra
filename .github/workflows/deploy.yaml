@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy via SSH
 on:
   workflow_run:
     workflows: ["Build and Push"]
@@ -15,55 +15,78 @@ jobs:
         id: vars
         run: |
           echo "APP_NAME=$(basename '${{ github.event.workflow_run.head_repository.full_name }}')" >> "$GITHUB_OUTPUT"
-          echo "APP_REPO=${{ github.event.workflow_run.head_repository.full_name }}" >> "$GITHUB_OUTPUT"
           echo "IMAGE_TAG=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          echo "MASTER_NODE=192.168.70.10" >> "$GITHUB_OUTPUT"
+          echo "SSH_USER=kubernetes" >> "$GITHUB_OUTPUT"
 
       - name: Checkout Application Code
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.vars.outputs.APP_REPO }}
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
           token: ${{ secrets.GHCR_TOKEN }}
           path: app-code
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-
-      - name: Configure Kubernetes
+      - name: Configure SSH Access
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
-          chmod 600 ~/.kube/config
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Verify Cluster Access
+        run: |
+          SSH_USER="${{ steps.vars.outputs.SSH_USER }}"
+          MASTER_NODE="${{ steps.vars.outputs.MASTER_NODE }}"
           
-          # Verify cluster access
+          echo "=== Testing SSH Connection ==="
+          ssh -T ${SSH_USER}@${MASTER_NODE} "echo 'SSH connection successful!'"
+          
+          echo "=== Cluster Version ==="
+          ssh ${SSH_USER}@${MASTER_NODE} "kubectl version --short"
+          
           echo "=== Cluster Info ==="
-          kubectl cluster-info
-          echo "=== Nodes ==="
-          kubectl get nodes
+          ssh ${SSH_USER}@${MASTER_NODE} "kubectl cluster-info"
+          
+          echo "=== Node Status ==="
+          ssh ${SSH_USER}@${MASTER_NODE} "kubectl get nodes -o wide"
+          
           echo "=== Current Context ==="
-          kubectl config current-context
+          ssh ${SSH_USER}@${MASTER_NODE} "kubectl config current-context"
 
       - name: Deploy Application
         run: |
-          # Verify manifests exist
-          echo "=== Kubernetes Manifests ==="
-          ls -la app-code/k8s/
-          
-          # Apply manifests
-          kubectl apply -f app-code/k8s/ --validate=true
-          
-          # Update image
+          SSH_USER="${{ steps.vars.outputs.SSH_USER }}"
+          MASTER_NODE="${{ steps.vars.outputs.MASTER_NODE }}"
           DEPLOYMENT_NAME="${{ steps.vars.outputs.APP_NAME }}"
-          IMAGE="ghcr.io/${{ github.repository_owner }}/$DEPLOYMENT_NAME:${{ steps.vars.outputs.IMAGE_TAG }}"
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/$DEPLOYMENT_NAME:${{ steps.vars.outputs.IMAGE_TAG }}"
           
-          echo "=== Updating Deployment ==="
-          echo "Deployment: $DEPLOYMENT_NAME"
-          echo "Image: $IMAGE"
+          # Transfer manifests to master node
+          echo "=== Copying Manifests to Master Node ==="
+          scp -r app-code/k8s/ ${SSH_USER}@${MASTER_NODE}:/tmp/${DEPLOYMENT_NAME}-manifests/
           
-          kubectl set image deployment/$DEPLOYMENT_NAME $DEPLOYMENT_NAME=$IMAGE --record
-          kubectl rollout status deployment/$DEPLOYMENT_NAME --timeout=120s
-          
-          # Verify deployment
-          echo "=== Deployment Status ==="
-          kubectl get deployments
-          kubectl get pods
+          # Execute remote deployment commands
+          ssh ${SSH_USER}@${MASTER_NODE} <<EOF
+            set -e
+            echo "=== Updating Image in Manifests ==="
+            sed -i "s|IMAGE_PLACEHOLDER|${IMAGE_NAME}|g" /tmp/${DEPLOYMENT_NAME}-manifests/deployment.yaml
+            
+            echo "=== Applying Manifests ==="
+            kubectl apply -f /tmp/${DEPLOYMENT_NAME}-manifests/ --validate=true
+            
+            echo "=== Updating Deployment Image ==="
+            kubectl set image deployment/${DEPLOYMENT_NAME} ${DEPLOYMENT_NAME}=${IMAGE_NAME} --record
+            
+            echo "=== Verifying Rollout ==="
+            kubectl rollout status deployment/${DEPLOYMENT_NAME} --timeout=120s
+            
+            echo "=== Final Deployment Status ==="
+            kubectl get deployment/${DEPLOYMENT_NAME} -o wide
+            kubectl get pods -l app=${DEPLOYMENT_NAME}
+          EOF
+
+      - name: Cleanup SSH Keys
+        if: always()
+        run: |
+          rm -f ~/.ssh/id_rsa
+          rm -f ~/.ssh/known_hosts
