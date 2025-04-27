@@ -12,11 +12,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set variables
-        id: vars
-        run: |
-          echo "APP_NAME=$(basename '${{ github.repository }}')" >> "$GITHUB_OUTPUT"
-
       - name: Checkout Source
         uses: actions/checkout@v4
 
@@ -25,7 +20,7 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
-          APP_NAME=${{ steps.vars.outputs.APP_NAME }}
+          APP_NAME=${{ inputs.application_repo }}
           IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$APP_NAME:${{ github.sha }}
 
           echo "Building $IMAGE_NAME"
