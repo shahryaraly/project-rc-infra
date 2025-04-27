@@ -14,25 +14,56 @@ jobs:
       - name: Set variables
         id: vars
         run: |
-          # Extract repo name as APP_NAME
           echo "APP_NAME=$(basename '${{ github.event.workflow_run.head_repository.full_name }}')" >> "$GITHUB_OUTPUT"
+          echo "APP_REPO=${{ github.event.workflow_run.head_repository.full_name }}" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_TAG=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout Infra Repo
+      - name: Checkout Application Code
         uses: actions/checkout@v4
         with:
-          repository: shahryaraly/project-rc-infra
-          path: app
+          repository: ${{ steps.vars.outputs.APP_REPO }}
+          token: ${{ secrets.GHCR_TOKEN }}
+          path: app-code
+          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Deploy
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure Kubernetes
         run: |
-          kubectl apply -f app/k8s/
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          
+          # Verify cluster access
+          echo "=== Cluster Info ==="
+          kubectl cluster-info
+          echo "=== Nodes ==="
+          kubectl get nodes
+          echo "=== Current Context ==="
+          kubectl config current-context
 
+      - name: Deploy Application
+        run: |
+          # Verify manifests exist
+          echo "=== Kubernetes Manifests ==="
+          ls -la app-code/k8s/
+          
+          # Apply manifests
+          kubectl apply -f app-code/k8s/ --validate=true
+          
+          # Update image
           DEPLOYMENT_NAME="${{ steps.vars.outputs.APP_NAME }}"
-          CONTAINER_NAME="${{ steps.vars.outputs.APP_NAME }}"
-          IMAGE="ghcr.io/${{ github.repository_owner }}/${{ steps.vars.outputs.APP_NAME }}:${{ github.event.workflow_run.head_sha }}"
-
-          echo "Updating $DEPLOYMENT_NAME container $CONTAINER_NAME with image $IMAGE"
-
-          kubectl set image deployment/$DEPLOYMENT_NAME $CONTAINER_NAME=$IMAGE
-        env:
-          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+          IMAGE="ghcr.io/${{ github.repository_owner }}/$DEPLOYMENT_NAME:${{ steps.vars.outputs.IMAGE_TAG }}"
+          
+          echo "=== Updating Deployment ==="
+          echo "Deployment: $DEPLOYMENT_NAME"
+          echo "Image: $IMAGE"
+          
+          kubectl set image deployment/$DEPLOYMENT_NAME $DEPLOYMENT_NAME=$IMAGE --record
+          kubectl rollout status deployment/$DEPLOYMENT_NAME --timeout=120s
+          
+          # Verify deployment
+          echo "=== Deployment Status ==="
+          kubectl get deployments
+          kubectl get pods
