@@ -20,8 +20,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
+      - name: Extract Application Name
+        id: vars
+        run: |
+          APP_NAME=$(echo "${{ inputs.application_repo }}" | cut -d'/' -f2)
+          echo "APP_NAME=${APP_NAME}" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/${APP_NAME}" >> $GITHUB_OUTPUT
+
       - name: Checkout Source
         uses: actions/checkout@v4
         with:
@@ -44,15 +54,37 @@ jobs:
         run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build and Push Docker Image
-        run: |
-          # Extract just the repo name (remove owner prefix)
-          APP_NAME=$(echo "${{ inputs.application_repo }}" | cut -d'/' -f2)
-          IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$APP_NAME:${{ github.sha }}
-          
-          echo "Building $IMAGE_NAME from ${{ inputs.dockerfile_path }}"
-          cd app-code
-          docker build -t $IMAGE_NAME -f ${{ inputs.dockerfile_path }} .
-          docker push $IMAGE_NAME
+        uses: docker/build-push-action@v5
+        with:
+          context: app-code
+          push: true
+          tags: |
+            ${{ steps.vars.outputs.IMAGE_NAME }}:${{ github.sha }}
+            ${{ steps.vars.outputs.IMAGE_NAME }}:latest
 
-          # Output the image name for downstream jobs
-          echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+      - name: Generate Manifests
+        run: |
+          APPLICATION_NAME=${{ steps.vars.outputs.APP_NAME }}
+          GITHUB_SHA=${{ github.sha }}
+          
+          # Process workload manifests
+          mkdir -p workloads/${APPLICATION_NAME}
+          cp -r workloads/_template/* workloads/${APPLICATION_NAME}/
+          find workloads/${APPLICATION_NAME} -type f -exec sed -i \
+            -e "s/{{APP_NAME}}/${APPLICATION_NAME}/g" \
+            -e "s/{{IMAGE_TAG}}/${GITHUB_SHA}/g" {} \;
+          
+          # Process cluster configs
+          mkdir -p clusters/rc-master/apps/${APPLICATION_NAME}
+          cp -r clusters/rc-master/apps/_template/* clusters/rc-master/apps/${APPLICATION_NAME}/
+          find clusters/rc-master/apps/${APPLICATION_NAME} -type f -exec sed -i \
+            -e "s/{{APP_NAME}}/${APPLICATION_NAME}/g" \
+            -e "s/{{IMAGE_TAG}}/${GITHUB_SHA}/g" {} \;
+        
+      - name: Commit Configuration Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Autogen manifests for ${{ steps.vars.outputs.APP_NAME }}"
+          file_pattern: |
+            workloads/${{ steps.vars.outputs.APP_NAME }}/*
+            clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*

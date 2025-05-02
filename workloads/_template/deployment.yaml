@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{APP_NAME}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: {{APP_NAME}}
+        image: ghcr.io/shahryaraly/{{APP_NAME}}:1.0.0 # Auto-updated
+      imagePullSecrets:
+      - name: ghcr-secret
