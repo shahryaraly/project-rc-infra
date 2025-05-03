@@ -7,8 +7,8 @@ resources:
 - flux-system/gotk-sync.yaml
 
 # Application components
-components:
-- apps/
+# components:
+# - apps/
 
 # Apply to all namespaces
 namespace: flux-system
