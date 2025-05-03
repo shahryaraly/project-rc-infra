@@ -29,6 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: project-rc-infra
+          token: ${{ secrets.GHCR_TOKEN }}
 
       - name: Extract Application Name
         id: vars
@@ -115,7 +116,8 @@ jobs:
           file_pattern: |
             generated/workloads/${{ steps.vars.outputs.APP_NAME }}/*
             generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*
-          repository: project-rc-infra
           branch: main
+          push: true
+          working_directory: project-rc-infra
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
