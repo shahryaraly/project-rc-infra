@@ -1,10 +1,12 @@
 name: Build and Push
 
 on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - '**'
+  # push:
+  #   branches: [ "main" ]
+  #   paths:
+  #     - '**'
+  repository_dispatch:  # Only allow explicit triggers
+    types: [trigger_build]
   workflow_dispatch:   # Add this line to allow manual/API trigger!
     inputs:
       application_repo:
@@ -129,5 +131,6 @@ jobs:
           push: true
           working_directory: project-rc-infra
           repository: project-rc-infra
+          skip_dirty_check: true
         env:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
