@@ -102,10 +102,20 @@ jobs:
           echo "Copied cluster files:"
           ls -la project-rc-infra/generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/
 
-      - name: Commit Configuration Changes
+      - name: Configure Git Identity
+        run: |
+          git config --global user.name "shahryaraly"
+          git config --global user.email "shahryaraly@live.com"
+        working-directory: project-rc-infra
+
+      - name: Stage and Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Autogen manifests for ${{ steps.vars.outputs.APP_NAME }}"
           file_pattern: |
-            project-rc-infra/generated/workloads/${{ steps.vars.outputs.APP_NAME }}/*
-            project-rc-infra/generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*
+            generated/workloads/${{ steps.vars.outputs.APP_NAME }}/*
+            generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*
+          repository: project-rc-infra
+          branch: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHCR_PAT }}
