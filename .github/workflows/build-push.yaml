@@ -109,13 +109,21 @@ jobs:
           git config --global user.email "shahryaraly@live.com"
         working-directory: project-rc-infra
 
+      - name: List Generated Files
+        run: |
+          echo "Workload files:"
+          ls generated/workloads/${{ steps.vars.outputs.APP_NAME }}/
+          echo "Cluster files:"
+          ls generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/
+        working-directory: project-rc-infra
+
       - name: Stage and Commit Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Autogen manifests for ${{ steps.vars.outputs.APP_NAME }}"
           file_pattern: |
-            generated/workloads/${{ steps.vars.outputs.APP_NAME }}/*
-            generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*
+            generated/workloads/${{ steps.vars.outputs.APP_NAME }}/*.yaml
+            generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*.yaml
           branch: main
           push: true
           working_directory: project-rc-infra
