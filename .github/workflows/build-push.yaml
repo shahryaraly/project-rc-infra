@@ -62,29 +62,43 @@ jobs:
             ${{ steps.vars.outputs.IMAGE_NAME }}:${{ github.sha }}
             ${{ steps.vars.outputs.IMAGE_NAME }}:latest
 
+      - name: Verify Template Files
+        run: |
+          echo "Checking workload templates:"
+          ls -la ./workloads/_template/
+          echo "Checking cluster templates:"
+          ls -la ./clusters/rc-master/apps/_template/
+
       - name: Generate Manifests
         run: |
           APPLICATION_NAME=${{ steps.vars.outputs.APP_NAME }}
           GITHUB_SHA=${{ github.sha }}
           
           # Process workload manifests
-          mkdir -p workloads/${APPLICATION_NAME}
-          cp -r workloads/_template/* workloads/${APPLICATION_NAME}/
-          find workloads/${APPLICATION_NAME} -type f -exec sed -i \
+          mkdir -p ./workloads/${APPLICATION_NAME}
+          cp -r ./workloads/_template/* workloads/${APPLICATION_NAME}/
+          find ./workloads/${APPLICATION_NAME} -type f -exec sed -i \
             -e "s/{{APP_NAME}}/${APPLICATION_NAME}/g" \
             -e "s/{{IMAGE_TAG}}/${GITHUB_SHA}/g" {} \;
           
           # Process cluster configs
-          mkdir -p clusters/rc-master/apps/${APPLICATION_NAME}
-          cp -r clusters/rc-master/apps/_template/* clusters/rc-master/apps/${APPLICATION_NAME}/
-          find clusters/rc-master/apps/${APPLICATION_NAME} -type f -exec sed -i \
+          mkdir -p ./clusters/rc-master/apps/${APPLICATION_NAME}
+          cp -r ./clusters/rc-master/apps/_template/* clusters/rc-master/apps/${APPLICATION_NAME}/
+          find ./clusters/rc-master/apps/${APPLICATION_NAME} -type f -exec sed -i \
             -e "s/{{APP_NAME}}/${APPLICATION_NAME}/g" \
             -e "s/{{IMAGE_TAG}}/${GITHUB_SHA}/g" {} \;
         
+      - name: Verify Copy Results
+        run: |
+          echo "Copied workload files:"
+          ls -la ./workloads/${{ steps.vars.outputs.APP_NAME }}/
+          echo "Copied cluster files:"
+          ls -la ./clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/
+
       - name: Commit Configuration Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Autogen manifests for ${{ steps.vars.outputs.APP_NAME }}"
           file_pattern: |
-            workloads/${{ steps.vars.outputs.APP_NAME }}/*
-            clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*
+            ./workloads/${{ steps.vars.outputs.APP_NAME }}/*
+            ./clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*
