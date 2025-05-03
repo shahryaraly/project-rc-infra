@@ -25,6 +25,11 @@ jobs:
       packages: write
 
     steps:
+      - name: Checkout project-rc-infra Repo
+        uses: actions/checkout@v4
+        with:
+          path: project-rc-infra
+
       - name: Extract Application Name
         id: vars
         run: |
@@ -32,7 +37,7 @@ jobs:
           echo "APP_NAME=${APP_NAME}" >> $GITHUB_OUTPUT
           echo "IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/${APP_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Checkout Source
+      - name: Checkout Application Source Repo
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.application_repo }}
@@ -65,12 +70,7 @@ jobs:
       - name: Verify Template Files
         run: |
           echo "=== ROOT DIRECTORY ==="
-          cd app-code
-          ls -la
-          cd ..
-          ls -la
-          cd ..
-          ls -la
+          ls -la /
           echo "Checking workload templates:"
           ls -la project-rc-infra/workloads/_template/
           echo "Checking cluster templates:"
@@ -82,30 +82,30 @@ jobs:
           GITHUB_SHA=${{ github.sha }}
           
           # Process workload manifests
-          mkdir -p project-rc-infra/workloads/${APPLICATION_NAME}
-          cp -r project-rc-infra/workloads/_template/* workloads/${APPLICATION_NAME}/
-          find project-rc-infra/workloads/${APPLICATION_NAME} -type f -exec sed -i \
+          mkdir -p project-rc-infra/generated/workloads/${APPLICATION_NAME}
+          cp -r project-rc-infra/workloads/_template/* project-rc-infra/generated/workloads/${APPLICATION_NAME}/
+          find project-rc-infra/generated/workloads/${APPLICATION_NAME} -type f -exec sed -i \
             -e "s/{{APP_NAME}}/${APPLICATION_NAME}/g" \
             -e "s/{{IMAGE_TAG}}/${GITHUB_SHA}/g" {} \;
           
           # Process cluster configs
-          mkdir -p project-rc-infra/clusters/rc-master/apps/${APPLICATION_NAME}
-          cp -r project-rc-infra/clusters/rc-master/apps/_template/* project-rc-infra/clusters/rc-master/apps/${APPLICATION_NAME}/
-          find project-rc-infra/clusters/rc-master/apps/${APPLICATION_NAME} -type f -exec sed -i \
+          mkdir -p project-rc-infra/generated/clusters/rc-master/apps/${APPLICATION_NAME}
+          cp -r project-rc-infra/clusters/rc-master/apps/_template/* project-rc-infra/generated/clusters/rc-master/apps/${APPLICATION_NAME}/
+          find project-rc-infra/generated/clusters/rc-master/apps/${APPLICATION_NAME} -type f -exec sed -i \
             -e "s/{{APP_NAME}}/${APPLICATION_NAME}/g" \
             -e "s/{{IMAGE_TAG}}/${GITHUB_SHA}/g" {} \;
         
       - name: Verify Copy Results
         run: |
           echo "Copied workload files:"
-          ls -la project-rc-infra/workloads/${{ steps.vars.outputs.APP_NAME }}/
+          ls -la project-rc-infra/generated/workloads/${{ steps.vars.outputs.APP_NAME }}/
           echo "Copied cluster files:"
-          ls -la project-rc-infra/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/
+          ls -la project-rc-infra/generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/
 
       - name: Commit Configuration Changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Autogen manifests for ${{ steps.vars.outputs.APP_NAME }}"
           file_pattern: |
-            project-rc-infra/workloads/${{ steps.vars.outputs.APP_NAME }}/*
-            project-rc-infra/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*
+            project-rc-infra/generated/workloads/${{ steps.vars.outputs.APP_NAME }}/*
+            project-rc-infra/generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*
