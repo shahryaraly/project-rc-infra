@@ -118,4 +118,4 @@ jobs:
           repository: project-rc-infra
           branch: main
         env:
-          GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
