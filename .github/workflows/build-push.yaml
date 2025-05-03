@@ -64,6 +64,11 @@ jobs:
 
       - name: Verify Template Files
         run: |
+          echo "=== ROOT DIRECTORY ==="
+          cd ..
+          ls -la
+          cd ..
+          ls -la
           echo "Checking workload templates:"
           ls -la ./workloads/_template/
           echo "Checking cluster templates:"
