@@ -121,9 +121,10 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Autogen manifests for ${{ steps.vars.outputs.APP_NAME }}"
-          file_pattern: |
-            generated/workloads/${{ steps.vars.outputs.APP_NAME }}/*.yaml
+          file_pattern: >
             generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*.yaml
+            generated/workloads/${{ steps.vars.outputs.APP_NAME }}/*.yaml
+          add_options: '-A'
           branch: main
           push: true
           working_directory: project-rc-infra
