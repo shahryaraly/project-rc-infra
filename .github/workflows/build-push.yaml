@@ -119,5 +119,6 @@ jobs:
           branch: main
           push: true
           working_directory: project-rc-infra
+          repository: project-rc-infra
         env:
           GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
