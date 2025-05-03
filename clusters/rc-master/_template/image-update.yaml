@@ -1,19 +1,19 @@
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageRepository
 metadata:
-  name: demo-cicd
+  name: {{APP_NAME}}
 spec:
-  image: ghcr.io/shahryaraly/demo-cicd
+  image: ghcr.io/shahryaraly/{{APP_NAME}}
   interval: 1m
 
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImagePolicy
 metadata:
-  name: demo-cicd
+  name: {{APP_NAME}}
 spec:
   imageRepositoryRef:
-    name: demo-cicd
+    name: {{APP_NAME}}
   policy:
     semver:
       range: ">=1.0.0"
@@ -22,7 +22,7 @@ spec:
 apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImageUpdateAutomation
 metadata:
-  name: demo-cicd
+  name: {{APP_NAME}}
 spec:
   interval: 1m
   sourceRef:
@@ -36,5 +36,5 @@ spec:
     push:
       branch: main
   update:
-    path: ./workloads/demo-cicd
+    path: ./generated/workloads/{{APP_NAME}}
     strategy: Setters

@@ -77,7 +77,7 @@ jobs:
           echo "Checking workload templates:"
           ls -la project-rc-infra/workloads/_template/
           echo "Checking cluster templates:"
-          ls -la project-rc-infra/clusters/rc-master/apps/_template/
+          ls -la project-rc-infra/clusters/rc-master/_template/
 
       - name: Generate Manifests
         run: |
@@ -92,9 +92,9 @@ jobs:
             -e "s/{{IMAGE_TAG}}/${GITHUB_SHA}/g" {} \;
           
           # Process cluster configs
-          mkdir -p project-rc-infra/generated/clusters/rc-master/apps/${APPLICATION_NAME}
-          cp -r project-rc-infra/clusters/rc-master/apps/_template/* project-rc-infra/generated/clusters/rc-master/apps/${APPLICATION_NAME}/
-          find project-rc-infra/generated/clusters/rc-master/apps/${APPLICATION_NAME} -type f -exec sed -i \
+          mkdir -p project-rc-infra/generated/clusters/rc-master/${APPLICATION_NAME}
+          cp -r project-rc-infra/clusters/rc-master/_template/* project-rc-infra/generated/clusters/rc-master/${APPLICATION_NAME}/
+          find project-rc-infra/generated/clusters/rc-master/${APPLICATION_NAME} -type f -exec sed -i \
             -e "s/{{APP_NAME}}/${APPLICATION_NAME}/g" \
             -e "s/{{IMAGE_TAG}}/${GITHUB_SHA}/g" {} \;
         
@@ -103,7 +103,7 @@ jobs:
           echo "Copied workload files:"
           ls -la project-rc-infra/generated/workloads/${{ steps.vars.outputs.APP_NAME }}/
           echo "Copied cluster files:"
-          ls -la project-rc-infra/generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/
+          ls -la project-rc-infra/generated/clusters/rc-master/${{ steps.vars.outputs.APP_NAME }}/
 
       - name: Configure Git Identity
         run: |
@@ -116,7 +116,7 @@ jobs:
           echo "Workload files:"
           ls generated/workloads/${{ steps.vars.outputs.APP_NAME }}/
           echo "Cluster files:"
-          ls generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/
+          ls generated/clusters/rc-master/${{ steps.vars.outputs.APP_NAME }}/
         working-directory: project-rc-infra
 
       - name: Stage and Commit Changes
@@ -124,7 +124,7 @@ jobs:
         with:
           commit_message: "Autogen manifests for ${{ steps.vars.outputs.APP_NAME }}"
           file_pattern: >
-            generated/clusters/rc-master/apps/${{ steps.vars.outputs.APP_NAME }}/*.yaml
+            generated/clusters/rc-master/${{ steps.vars.outputs.APP_NAME }}/*.yaml
             generated/workloads/${{ steps.vars.outputs.APP_NAME }}/*.yaml
           add_options: '-A'
           branch: main
