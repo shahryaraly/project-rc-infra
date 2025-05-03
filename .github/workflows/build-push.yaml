@@ -65,6 +65,7 @@ jobs:
       - name: Verify Template Files
         run: |
           echo "=== ROOT DIRECTORY ==="
+          cd app-code
           ls -la
           cd ..
           ls -la
